@@ -8,9 +8,9 @@ The `network` Default Metadata File is used to dynamically create collections ba
 
 ## Collections Section 04
 
-| Collection                          |                 Key                 | Description                                                                 |
-|:------------------------------------|:-----------------------------------:|:----------------------------------------------------------------------------|
-| `Network Collections`               |             `separator`             | [Separator Collection](../separators) to denote the Section of Collections. |
+| Collection                          | Key                                 | Description                                                                 |
+|:------------------------------------|:------------------------------------|:----------------------------------------------------------------------------|
+| `Network Collections`               | `separator`                         | [Separator Collection](../separators) to denote the Section of Collections. |
 | `<<network>>`<br>**Example:** `NBC` | `<<network>>`<br>**Example:** `NBC` | Collection of Shows the aired on the network.                               |
 
 ## Config
@@ -66,7 +66,11 @@ libraries:
 ```
 
 
-## Default `include`
+## Default values
+
+These are lists provided for reference to show what values will be in use if you do no customization.  If you want to customize these values, use the methods described above.  These do not show how to change a name or a list.
+
+### Default `include`
 
 ```yaml
 include:
@@ -79,7 +83,7 @@ include:
   - BET
   - Cartoon Network
   - Channel 4
-  - Channel 5 
+  - Channel 5
   - CBC
   - CBS
   - Comedy Central
@@ -111,7 +115,7 @@ include:
   - YouTube
 ```
 
-## Default `addons`
+### Default `addons`
 
 ```yaml
 addons:
@@ -213,10 +217,10 @@ addons:
     - Disney Channel (CZ)
     - Disney Channel (UK)
     - Disney Junior
-    - Disney XD  
+    - Disney XD
     - Disney+
     - Playhouse Disney
-    - Toon Disney    
+    - Toon Disney
   E!:
     - e.tv
   ESPN:

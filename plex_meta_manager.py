@@ -1,4 +1,4 @@
-import argparse, os, sys, time, uuid
+import argparse, os, platform, psutil, sys, time, uuid
 from concurrent.futures import ProcessPoolExecutor
 from datetime import datetime
 from modules.logs import MyLogger
@@ -70,7 +70,8 @@ def get_arg(env_str, default, arg_bool=False, arg_int=False):
     else:
         return default
 
-
+is_docker = get_arg("PMM_DOCKER", False, arg_bool=True)
+is_linuxserver = get_arg("PMM_LINUXSERVER", False, arg_bool=True)
 run_arg = " ".join([f'"{s}"' if " " in s else s for s in sys.argv[:]])
 config_file = get_arg("PMM_CONFIG", args.config)
 times = get_arg("PMM_TIME", args.times)
@@ -123,7 +124,7 @@ from modules import util
 util.logger = logger
 from modules.builder import CollectionBuilder
 from modules.config import ConfigFile
-from modules.util import Failed, NonExisting, NotScheduled, Deleted
+from modules.util import Failed, FilterFailed, NonExisting, NotScheduled, Deleted
 
 def my_except_hook(exctype, value, tb):
     if issubclass(exctype, KeyboardInterrupt):
@@ -181,11 +182,14 @@ def start(attrs):
     logger.info_center("|  __/| |  __/>  <  | |  | |  __/ || (_| | | |  | | (_| | | | | (_| | (_| |  __/ |   ")
     logger.info_center("|_|   |_|\\___/_/\\_\\ |_|  |_|\\___|\\__\\__,_| |_|  |_|\\__,_|_| |_|\\__,_|\\__, |\\___|_|   ")
     logger.info_center("                                                                     |___/           ")
-    logger.info(f"    Version: {version[0]}")
+    system_ver = "Docker" if is_docker else "Linuxserver" if is_linuxserver else f"Python {platform.python_version()}"
+    logger.info(f"    Version: {version[0]} ({system_ver})")
     latest_version = util.current_version(version)
     new_version = latest_version[0] if latest_version and (version[1] != latest_version[1] or (version[2] and version[2] < latest_version[2])) else None
     if new_version:
         logger.info(f"    Newest Version: {new_version}")
+    logger.info(f"    Platform: {platform.platform()}")
+    logger.info(f"    Memory: {round(psutil.virtual_memory().total / (1024.0 ** 3))} GB")
     if "time" in attrs and attrs["time"]:                   start_type = f"{attrs['time']} "
     elif "test" in attrs and attrs["test"]:                 start_type = "Test "
     elif "collections" in attrs and attrs["collections"]:   start_type = "Collections "
@@ -456,10 +460,10 @@ def run_libraries(config):
                 logger.info("")
                 for collection in library.get_all_collections():
                     try:
-                        library.query(collection.delete)
+                        library.delete(collection)
                         logger.info(f"Collection {collection.title} Deleted")
-                    except NotFound:
-                        logger.error(f"Collection {collection.title} Failed to Delete")
+                    except Failed as e:
+                        logger.error(e)
                 library_status[library.name]["All Collections Deleted"] = str(datetime.now() - time_start).split('.')[0]
 
             if delete_labels and not playlist_only:
@@ -601,6 +605,8 @@ def run_collection(config, library, metadata, requested_collections):
             if len(builder.smart_filter_details) > 0:
                 logger.info("")
                 logger.info(builder.smart_filter_details)
+                logger.info("")
+                logger.info(f"Items Found: {builder.beginning_count}")
 
             items_added = 0
             items_removed = 0
@@ -645,10 +651,7 @@ def run_collection(config, library, metadata, requested_collections):
                     library.status[str(mapping_name)]["sonarr"] += sonarr_add
 
             valid = True
-            if builder.build_collection and not builder.blank_collection and (
-                    (not builder.smart_url and items_added + builder.beginning_count < builder.minimum)
-                    or (builder.smart_url and len(library.get_filter_items(builder.smart_url)) < builder.minimum)
-            ):
+            if builder.build_collection and not builder.blank_collection and items_added + builder.beginning_count < builder.minimum:
                 logger.info("")
                 logger.info(f"{builder.Type} Minimum: {builder.minimum} not met for {mapping_name} Collection")
                 delete_status = f"Minimum {builder.minimum} Not Met"
@@ -719,6 +722,8 @@ def run_collection(config, library, metadata, requested_collections):
                 library.status[str(mapping_name)]["status"] = "Skipped Invalid Library Type"
             else:
                 library.status[str(mapping_name)]["status"] = "Not Scheduled"
+        except FilterFailed:
+            pass
         except Failed as e:
             library.notify(e, collection=mapping_name)
             logger.stacktrace()

@@ -10,9 +10,9 @@ This file also merges similarly named studios (such as "20th Century Fox" and "2
 
 ## Collections Section 07
 
-| Collection                                           |                         Key                          | Description                                                                 |
-|:-----------------------------------------------------|:----------------------------------------------------:|:----------------------------------------------------------------------------|
-| `Studio Collections`                                 |                     `separator`                      | [Separator Collection](../separators) to denote the Section of Collections. |
+| Collection                                           | Key                                                  | Description                                                                 |
+|:-----------------------------------------------------|:-----------------------------------------------------|:----------------------------------------------------------------------------|
+| `Studio Collections`                                 | `separator`                                          | [Separator Collection](../separators) to denote the Section of Collections. |
 | `<<Studio>>`<br>**Example:** `Blumhouse Productions` | `<<Studio>>`<br>**Example:** `Blumhouse Productions` | Collection of Movies/Shows that have this Studio.                           |
 
 ## Config
@@ -72,7 +72,11 @@ libraries:
           sep_style: gray
 ```
 
-## Default `include`
+## Default values
+
+These are lists provided for reference to show what values will be in use if you do no customization.  If you want to customize these values, use the methods described above.  These do not show how to change a name or a list.
+
+### Default `include`
 
 ```yaml
 include:
@@ -112,7 +116,7 @@ include:
   - Warner Bros. Pictures
 ```
 
-## Default `addons`
+### Default `addons`
 
 ```yaml
 addons:
@@ -122,36 +126,18 @@ addons:
     - 20th Century Fox
   Amazon Studios:
     - Amazon
-  Amblin Entertainment:
-    - Amblin Entertainment
   Blue Sky Studios:
     - Blue Sky Films
-  Blumhouse Productions:
-    - Blumhouse Productions
-  Chernin Entertainment:
-    - Chernin Entertainment
   Columbia Pictures:
     - Columbia TriStar
     - TriStar
-  Constantin Film:
-    - Constantin Film
   DreamWorks Studios:
     - DreamWorks
     - DreamWorks Animation
-  Grindstone Entertainment Group:
-    - Grindstone Entertainment Group
-  Happy Madison Productions:
-    - Happy Madison Productions
   Illumination Entertainment:
     - Illumination Films
-  Ingenious Media:
-    - Ingenious Media
-  Legendary Pictures:
-    - Legendary Pictures
   Lucasfilm Ltd:
     - Lucasfilm
-  Malevolent Films:
-    - Malevolent Films
   Marvel Studios:
     - Marvel Animation
     - Marvel Enterprises
@@ -159,33 +145,19 @@ addons:
     - Marvel
   Metro-Goldwyn-Mayer:
     - MGM
-  Millennium Films:
-    - Millennium Films
-  Miramax:
-    - Miramax
   New Line Cinema:
     - New Line
-  Original Film:
-    - Original Film
-  Orion Pictures:
-    - Orion Pictures
   Paramount Pictures:
     - Paramount
     - Paramount Animation
   Pixar:
     - Pixar Animation Studios
-  PlanB Entertainment:
-    - PlanB Entertainment
   Sony Pictures:
     - Sony
     - Sony Pictures Animation
-  Summit Entertainment:
-    - Summit Entertainment
   Universal Pictures:
     - Universal
     - Universal Animation Studios
-  Village Roadshow Pictures:
-    - Village Roadshow Pictures
   Walt Disney Pictures:
     - Disney
     - Walt Disney Animation Studios

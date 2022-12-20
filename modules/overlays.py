@@ -2,7 +2,7 @@ import os, re, time
 from datetime import datetime
 from modules import plex, util, overlay
 from modules.builder import CollectionBuilder
-from modules.util import Failed, NonExisting, NotScheduled
+from modules.util import Failed, FilterFailed, NonExisting, NotScheduled
 from num2words import num2words
 from plexapi.exceptions import BadRequest
 from plexapi.video import Movie, Show, Season, Episode
@@ -159,18 +159,19 @@ class Overlays:
                             has_original = os.path.join(self.library.overlay_backup, f"{item.ratingKey}.png")
                         elif os.path.exists(os.path.join(self.library.overlay_backup, f"{item.ratingKey}.jpg")):
                             has_original = os.path.join(self.library.overlay_backup, f"{item.ratingKey}.jpg")
-                        if self.library.reset_overlays is not None or has_original is None:
-                            if self.library.reset_overlays == "tmdb":
-                                try:
-                                    new_backup = self.find_poster_url(item)
-                                except Failed as e:
-                                    logger.error(e)
+                        if self.library.reset_overlays == "plex" or (has_original is None and self.library.reset_overlays is None):
+                            temp_poster = next((p for p in item.posters() if p.provider == "local"), None)
+                            if temp_poster:
+                                new_backup = f"{self.library.url}{temp_poster.key}&X-Plex-Token={self.library.token}"
                             else:
-                                temp_poster = next((p for p in item.posters() if p.provider == "local"), None)
-                                if temp_poster:
-                                    new_backup = f"{self.library.url}{temp_poster.key}&X-Plex-Token={self.library.token}"
-                            if not new_backup:
-                                logger.error("Overlay Error: Reset Failed")
+                                logger.trace("Plex Error: Plex Poster Download Failed")
+                        if self.library.reset_overlays == "tmdb" or (has_original is None and new_backup is None and self.library.reset_overlays is None):
+                            try:
+                                new_backup = self.find_poster_url(item)
+                            except Failed as e:
+                                logger.trace(e)
+                        if not new_backup and self.library.reset_overlays is not None:
+                            logger.error("Overlay Error: Reset Failed")
                     else:
                         new_backup = item.posterUrl
                     if new_backup:
@@ -412,9 +413,15 @@ class Overlays:
                     logger.info("")
                 except NotScheduled as e:
                     logger.info(e)
+                except FilterFailed:
+                    pass
                 except Failed as e:
                     logger.stacktrace()
                     logger.error(e)
+                    logger.info("")
+                except Exception as e:
+                    logger.stacktrace()
+                    logger.error(f"Unknown Error: {e}")
                     logger.info("")
 
         logger.separator(f"Overlay Operation for the {self.library.name} Library")

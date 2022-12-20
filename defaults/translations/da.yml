@@ -54,7 +54,7 @@ key_names:
   # Chile: Chile
   China: Kina
   Chinese: Kinesisk
-  Christmas: Jul
+  Christmas: Jule
   Comedy: Komedie
   Competition: Konkurrence
   # Costa Rica: Costa Rica
@@ -446,10 +446,6 @@ translations:
   # example key_name: 2010s
   decade_name: Bedste fra <<translated_key_name>>
   decade_summary: Top <<limit>> <<library_translation>> fra <<translated_key_name>>.
-
-  # example key_name: 2010
-  decade_show_name: Bedste fra <<translated_key_name>>
-  decade_show_summary: Top <<limit>> <<library_translation>> fra <<translated_key_name>>.
 
   # example key_name: Robin Williams
   director_name: <<translated_key_name>> (Instruktør)

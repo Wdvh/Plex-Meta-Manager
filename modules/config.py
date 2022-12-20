@@ -70,7 +70,8 @@ mass_rating_options = {
     "imdb": "Use IMDb Rating",
     "trakt_user": "Use Trakt User Rating",
     "omdb": "Use IMDb Rating through OMDb",
-    "mdb": "Use MdbList Average Score",
+    "mdb": "Use MdbList Score",
+    "mdb_average": "Use MdbList Average Score",
     "mdb_imdb": "Use IMDb Rating through MDbList",
     "mdb_metacritic": "Use Metacritic Rating through MDbList",
     "mdb_metacriticuser": "Use Metacritic User Rating through MDbList",
@@ -177,6 +178,8 @@ class ConfigFile:
                     if "save_missing" in self.data["libraries"][library]["settings"]:
                         self.data["libraries"][library]["settings"]["save_report"] = self.data["libraries"][library]["settings"].pop("save_missing")
                 if "radarr" in self.data["libraries"][library] and self.data["libraries"][library]["radarr"]:
+                    if "monitor" in self.data["libraries"][library]["radarr"] and isinstance(self.data["libraries"][library]["radarr"]["monitor"], bool):
+                        self.data["libraries"][library]["radarr"]["monitor"] = True if self.data["libraries"][library]["radarr"]["monitor"] else False
                     if "add" in self.data["libraries"][library]["radarr"]:
                         self.data["libraries"][library]["radarr"]["add_missing"] = self.data["libraries"][library]["radarr"].pop("add")
                 if "sonarr" in self.data["libraries"][library] and self.data["libraries"][library]["sonarr"]:
@@ -231,6 +234,8 @@ class ConfigFile:
         if "notifiarr" in self.data:                   self.data["notifiarr"] = self.data.pop("notifiarr")
         if "anidb" in self.data:                       self.data["anidb"] = self.data.pop("anidb")
         if "radarr" in self.data:
+            if "monitor" in self.data["radarr"] and isinstance(self.data["radarr"]["monitor"], bool):
+                self.data["radarr"]["monitor"] = True if self.data["radarr"]["monitor"] else False
             temp = self.data.pop("radarr")
             if temp and "add" in temp:
                 temp["add_missing"] = temp.pop("add")
@@ -276,8 +281,9 @@ class ConfigFile:
                 if isinstance(data[attribute], bool):                               return data[attribute]
                 else:                                                               message = f"{text} must be either true or false"
             elif var_type == "int":
-                if isinstance(data[attribute], int) and data[attribute] >= int_min: return data[attribute]
-                else:                                                               message = f"{text} must an integer >= 0"
+                if isinstance(data[attribute], bool):                               message = f"{text} must an integer >= {int_min}"
+                elif isinstance(data[attribute], int) and data[attribute] >= int_min: return data[attribute]
+                else:                                                               message = f"{text} must an integer >= {int_min}"
             elif var_type == "path":
                 if os.path.exists(os.path.abspath(data[attribute])):                return data[attribute]
                 else:                                                               message = f"Path {os.path.abspath(data[attribute])} does not exist"
@@ -732,10 +738,8 @@ class ConfigFile:
                                             params[op][old_value] = new_value if new_value else None
                                 if data_type == "delete_collections":
                                     params[op] = {
-                                        "managed": check_for_attribute(lib["operations"][op], "managed", var_type="bool", default=False, save=False),
-                                        "unmanaged": check_for_attribute(lib["operations"][op], "unmanaged", var_type="bool", default=False, save=False),
-                                        "configured": check_for_attribute(lib["operations"][op], "configured", var_type="bool", default=False, save=False),
-                                        "unconfigured": check_for_attribute(lib["operations"][op], "unconfigured", var_type="bool", default=False, save=False),
+                                        "managed": check_for_attribute(lib["operations"][op], "managed", var_type="bool", default_is_none=True, save=False),
+                                        "configured": check_for_attribute(lib["operations"][op], "configured", var_type="bool", default_is_none=True, save=False),
                                         "less": check_for_attribute(lib["operations"][op], "less", var_type="int", default_is_none=True, save=False, int_min=1),
                                     }
                             else:
@@ -799,8 +803,6 @@ class ConfigFile:
                         if not lib["overlay_path"]:
                             raise Failed("Config Error: overlay_path attribute is blank")
                         files = util.load_files(lib["overlay_path"], "overlay_path", lib_vars=lib_vars)
-                        if not files:
-                            raise Failed("Config Error: No Paths Found for overlay_path")
                         for file in util.get_list(lib["overlay_path"], split=False):
                             if isinstance(file, dict):
                                 if ("remove_overlays" in file and file["remove_overlays"] is True) \
@@ -831,6 +833,8 @@ class ConfigFile:
                                             err = e
                                     if err:
                                         raise NotScheduled(f"Overlay Schedule:{err}\n\nOverlays not scheduled to run")
+                        if not files and params["remove_overlays"] is False and params["reset_overlays"] is False:
+                            raise Failed("Config Error: No Paths Found for overlay_path")
                         params["overlay_path"] = files
                     except NotScheduled as e:
                         logger.info("")

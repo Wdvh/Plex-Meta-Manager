@@ -10,11 +10,11 @@ If you do not use the UK-based rating system within Plex, this file will attempt
 
 ## Collections Section 14
 
-| Collection                                                    |                    Key                    | Description                                                                           |
-|:--------------------------------------------------------------|:-----------------------------------------:|:--------------------------------------------------------------------------------------|
-| `Ratings Collections`                                         |                `separator`                | [Separator Collection](../separators) to denote the Section of Collections.           |
+| Collection                                                    | Key                                       | Description                                                                           |
+|:--------------------------------------------------------------|:------------------------------------------|:--------------------------------------------------------------------------------------|
+| `Ratings Collections`                                         | `separator`                               | [Separator Collection](../separators) to denote the Section of Collections.           |
 | `<<Content Rating>> Movies/Shows`<br>**Example:** `15 Movies` | `<<Content Rating>>`<br>**Example:** `15` | Collection of Movies/Shows that have this Content Rating.                             |
-| `Not Rated Movies/Shows`                                      |                  `other`                  | Collection of Movies/Shows that are Unrated, Not Rated or any other uncommon Ratings. |
+| `Not Rated Movies/Shows`                                      | `other`                                   | Collection of Movies/Shows that are Unrated, Not Rated or any other uncommon Ratings. |
 
 ## Config
 
@@ -75,7 +75,11 @@ libraries:
           sort_by: title.asc
 ```
 
-## Default `include`
+## Default values
+
+These are lists provided for reference to show what values will be in use if you do no customization.  If you want to customize these values, use the methods described above.  These do not show how to change a name or a list.
+
+### Default `include`
 
 ```yaml
 include:
@@ -88,7 +92,7 @@ include:
   - R18
 ```
 
-## Default `addons`
+### Default `addons`
 
 ```yaml
     addons:

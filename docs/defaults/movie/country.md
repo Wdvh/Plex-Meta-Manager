@@ -8,11 +8,11 @@ The `country` Default Metadata File is used to dynamically create collections ba
 
 ## Collections Section 09
 
-| Collection                              |                   Key                   | Description                                                                 |
-|:----------------------------------------|:---------------------------------------:|:----------------------------------------------------------------------------|
-| `Country Collections`                   |               `separator`               | [Separator Collection](../separators) to denote the Section of Collections. |
+| Collection                              | Key                                     | Description                                                                 |
+|:----------------------------------------|:----------------------------------------|:----------------------------------------------------------------------------|
+| `Country Collections`                   | `separator`                             | [Separator Collection](../separators) to denote the Section of Collections. |
 | `<<Country>>`<br>**Example:** `Germany` | `<<Country>>`<br>**Example:** `Germany` | Collection of Movies that have this Country.                                |
-| `Other Countries`                       |                 `other`                 | Collection of Movies that are in other uncommon Countries.                  |
+| `Other Countries`                       | `other`                                 | Collection of Movies that are in other uncommon Countries.                  |
 
 ## Config
 
@@ -76,7 +76,11 @@ libraries:
           sort_by: title.asc
 ```
 
-## Default `include`
+## Default values
+
+These are lists provided for reference to show what values will be in use if you do no customization.  If you want to customize these values, use the methods described above.  These do not show how to change a name or a list.
+
+### Default `include`
 
 ```yaml
 include:
@@ -311,7 +315,7 @@ include:
   # - Zimbabwe                      # zw
 ```
 
-## Default `addons`
+### Default `addons`
 
 ```yaml
 addons:

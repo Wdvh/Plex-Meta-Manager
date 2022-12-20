@@ -545,11 +545,22 @@ class Plex(Library):
 
     @retry(stop_max_attempt_number=6, wait_fixed=10000, retry_on_exception=util.retry_if_not_plex)
     def moveItem(self, obj, item, after):
-        obj.moveItem(item, after=after)
+        try:
+            obj.moveItem(item, after=after)
+        except (BadRequest, NotFound, Unauthorized) as e:
+            logger.error(e)
+            raise Failed("Move Failed")
 
     @retry(stop_max_attempt_number=6, wait_fixed=10000, retry_on_exception=util.retry_if_not_plex)
     def query(self, method):
         return method()
+
+    def delete(self, obj):
+        try:
+            return self.query(obj.delete)
+        except Exception:
+            logger.stacktrace()
+            raise Failed(f"Plex Error: Failed to delete {obj.title}")
 
     @retry(stop_max_attempt_number=6, wait_fixed=10000, retry_on_exception=util.retry_if_not_plex)
     def query_data(self, method, data):
@@ -704,7 +715,7 @@ class Plex(Library):
         return self._users
 
     def delete_user_playlist(self, title, user):
-        self.PlexServer.switchUser(user).playlist(title).delete()
+        self.delete(self.PlexServer.switchUser(user).playlist(title))
 
     @property
     def account(self):
@@ -750,7 +761,11 @@ class Plex(Library):
         self._query(key, put=True)
 
     def smart_label_check(self, label):
-        return label in [la.title for la in self.get_tags("label")]
+        labels = [la.title for la in self.get_tags("label")]
+        if label in labels:
+            return True
+        logger.trace(f"Label not found in Plex. Options: {labels}")
+        return False
 
     def test_smart_filter(self, uri_args):
         logger.debug(f"Smart Collection Test: {uri_args}")
@@ -1045,12 +1060,12 @@ class Plex(Library):
                 logger.info(final)
         return final[28:] if final else final
 
-    def item_images(self, item, group, alias, initial=False, asset_location=None, title=None, image_name=None, folder_name=None):
+    def item_images(self, item, group, alias, initial=False, asset_location=None, asset_directory=None, title=None, image_name=None, folder_name=None):
         if title is None:
             title = item.title
         posters, backgrounds = util.get_image_dicts(group, alias)
         try:
-            asset_poster, asset_background, item_dir, folder_name = self.find_item_assets(item, item_asset_directory=asset_location)
+            asset_poster, asset_background, item_dir, folder_name = self.find_item_assets(item, item_asset_directory=asset_location, asset_directory=asset_directory)
             if asset_poster:
                 posters["asset_directory"] = asset_poster
             if asset_background:
@@ -1062,9 +1077,12 @@ class Plex(Library):
         poster = util.pick_image(title, posters, self.prioritize_assets, self.download_url_assets, asset_location, image_name=image_name)
         background = util.pick_image(title, backgrounds, self.prioritize_assets, self.download_url_assets, asset_location,
                                      is_poster=False, image_name=f"{image_name}_background" if image_name else image_name)
+        updated = False
         if poster or background:
-            self.upload_images(item, poster=poster, background=background, overlay=True)
-        return asset_location, folder_name
+            pu, bu = self.upload_images(item, poster=poster, background=background, overlay=True)
+            if pu or bu:
+                updated = True
+        return asset_location, folder_name, updated
 
     def find_and_upload_assets(self, item, current_labels):
         item_dir = None

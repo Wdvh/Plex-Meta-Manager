@@ -1,5 +1,6 @@
-import glob, logging, os, re, requests, ruamel.yaml, signal, sys, time
+import glob, os, re, requests, ruamel.yaml, signal, sys, time
 from datetime import datetime, timedelta
+from modules.logs import MyLogger
 from num2words import num2words
 from pathvalidate import is_valid_filename, sanitize_filename
 from plexapi.audio import Album, Track
@@ -13,7 +14,7 @@ except ModuleNotFoundError:
     windows = False
 
 
-logger = logging.getLogger("Plex Meta Manager")
+logger: MyLogger = None
 
 class TimeoutExpired(Exception):
     pass
@@ -22,6 +23,12 @@ class LimitReached(Exception):
     pass
 
 class Failed(Exception):
+    pass
+
+class FilterFailed(Failed):
+    pass
+
+class Continue(Exception):
     pass
 
 class Deleted(Exception):
@@ -53,7 +60,7 @@ def retry_if_not_failed(exception):
     return not isinstance(exception, Failed)
 
 def retry_if_not_plex(exception):
-    return not isinstance(exception, (BadRequest, NotFound, Unauthorized))
+    return not isinstance(exception, (BadRequest, NotFound, Unauthorized, Failed))
 
 days_alias = {
     "monday": 0, "mon": 0, "m": 0,
@@ -74,11 +81,9 @@ pretty_months = {
     7: "July", 8: "August", 9: "September", 10: "October", 11: "November", 12: "December"
 }
 seasons = ["current", "winter", "spring", "summer", "fall"]
-pretty_ids = {"anidbid": "AniDB", "imdbid": "IMDb", "mal_id": "MyAnimeList", "themoviedb_id": "TMDb", "thetvdb_id": "TVDb", "tvdbid": "TVDb"}
 advance_tags_to_edit = {
     "Movie": ["metadata_language", "use_original_title"],
-    "Show": ["episode_sorting", "keep_episodes", "delete_episodes", "season_display", "episode_ordering",
-             "metadata_language", "use_original_title"],
+    "Show": ["episode_sorting", "keep_episodes", "delete_episodes", "season_display", "episode_ordering", "metadata_language", "use_original_title"],
     "Artist": ["album_sorting"]
 }
 tags_to_edit = {
@@ -87,7 +92,6 @@ tags_to_edit = {
     "Show": ["genre", "label", "collection"],
     "Artist": ["genre", "label", "style", "mood", "country", "collection", "similar_artist"]
 }
-mdb_types = ["mdb", "mdb_imdb", "mdb_metacritic", "mdb_metacriticuser", "mdb_trakt", "mdb_tomatoes", "mdb_tomatoesaudience", "mdb_tmdb", "mdb_letterboxd"]
 collection_mode_options = {
     "default": "default", "hide": "hide",
     "hide_items": "hideItems", "hideitems": "hideItems",
@@ -526,6 +530,8 @@ def is_boolean_filter(value, data):
 
 def is_string_filter(values, modifier, data):
     jailbreak = False
+    if modifier == ".regex":
+        logger.trace(f"Regex Values: {values}")
     for value in values:
         for check_value in data:
             if (modifier in ["", ".not"] and check_value.lower() in value.lower()) \
@@ -665,6 +671,28 @@ def check_int(value, datatype="int", minimum=1, maximum=None):
             return value
     except ValueError:
         pass
+
+def parse_and_or(error, attribute, data, test_list=None):
+    out = ""
+    ands = [d.strip() for d in data.split(",")]
+    for an in ands:
+        ors = [a.strip() for a in an.split("|")]
+        for item in ors:
+            if not item:
+                raise Failed(f"{error} Error: Cannot have a blank {attribute}")
+            if test_list and item not in test_list:
+                raise Failed(f"{error} Error: {attribute} {item} is invalid")
+        if out:
+            out += f" and "
+        if len(ands) > 1 and len(ors) > 1:
+            out += "("
+        if len(ors) > 1:
+            out += ' or '.join([test_list[int(o)] if test_list else o for o in ors])
+        else:
+            out += test_list[int(ors[0])] if test_list else ors[0]
+        if len(ands) > 1 and len(ors) > 1:
+            out += ")"
+    return out
 
 def parse(error, attribute, data, datatype=None, methods=None, parent=None, default=None, options=None, translation=None, minimum=1, maximum=None, regex=None, range_split=None):
     display = f"{parent + ' ' if parent else ''}{attribute} attribute"

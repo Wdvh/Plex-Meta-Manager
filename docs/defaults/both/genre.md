@@ -10,9 +10,9 @@ This file also merges similarly named genres (such as "Sci-Fi", "SciFi" and "Sci
 
 ## Collections Section 06
 
-| Collection                                               |               Key                | Description                                                                 |
-|:---------------------------------------------------------|:--------------------------------:|:----------------------------------------------------------------------------|
-| `Genre Collections`                                      |           `separator`            | [Separator Collection](../separators) to denote the Section of Collections. |
+| Collection                                               | Key                              | Description                                                                 |
+|:---------------------------------------------------------|:---------------------------------|:----------------------------------------------------------------------------|
+| `Genre Collections`                                      | `separator`                      | [Separator Collection](../separators) to denote the Section of Collections. |
 | `<<Genre>> Movies/Shows`<br>**Example:** `Action Movies` | `<<Number>>`<br>**Example:** `5` | Collection of Movies/Shows that have this Genre.                            |
 
 ## Config
@@ -72,7 +72,11 @@ libraries:
           sort_by: title.asc
 ```
 
-## Default `addons`
+## Default values
+
+These are lists provided for reference to show what values will be in use if you do no customization.  If you want to customize these values, use the methods described above.  These do not show how to change a name or a list.
+
+### Default `addons`
 
 ```yaml
 addons:
