@@ -125,6 +125,8 @@ class ConfigFile:
         self.collection_only = attrs["collection_only"] if "collection_only" in attrs else False
         self.operations_only = attrs["operations_only"] if "operations_only" in attrs else False
         self.overlays_only = attrs["overlays_only"] if "overlays_only" in attrs else False
+        self.env_plex_url = attrs["plex_url"] if "plex_url" in attrs else ""
+        self.env_plex_token = attrs["plex_token"] if "plex_token" in attrs else ""
         current_time = datetime.now()
 
         with open(self.config_path, encoding="utf-8") as fp:
@@ -767,6 +769,7 @@ class ConfigFile:
                 if lib and "template_variables" in lib and lib["template_variables"] and isinstance(lib["template_variables"], dict):
                     lib_vars = lib["template_variables"]
 
+                params["metadata_path"] = []
                 try:
                     if lib and "metadata_path" in lib:
                         if not lib["metadata_path"]:
@@ -777,8 +780,6 @@ class ConfigFile:
                         params["metadata_path"] = files
                     elif os.path.exists(os.path.join(default_dir, f"{library_name}.yml")):
                         params["metadata_path"] = [("File", os.path.join(default_dir, f"{library_name}.yml"), lib_vars, None)]
-                    else:
-                        params["metadata_path"] = []
                 except Failed as e:
                     logger.error(e)
                 params["default_dir"] = default_dir
@@ -855,6 +856,10 @@ class ConfigFile:
                         "empty_trash": check_for_attribute(lib, "empty_trash", parent="plex", var_type="bool", default=self.general["plex"]["empty_trash"], save=False),
                         "optimize": check_for_attribute(lib, "optimize", parent="plex", var_type="bool", default=self.general["plex"]["optimize"], save=False)
                     }
+                    if params["plex"]["url"].lower() == "env":
+                        params["plex"]["url"] = self.env_plex_url
+                    if params["plex"]["token"].lower() == "env":
+                        params["plex"]["token"] = self.env_plex_token
                     library = Plex(self, params)
                     logger.info("")
                     logger.info(f"{display_name} Library Connection Successful")
@@ -984,7 +989,12 @@ class ConfigFile:
         return html.fromstring(self.get(url, headers=headers, params=params).content)
 
     def get_json(self, url, json=None, headers=None, params=None):
-        return self.get(url, json=json, headers=headers, params=params).json()
+        response = self.get(url, json=json, headers=headers, params=params)
+        try:
+            return response.json()
+        except ValueError:
+            logger.error(str(response.content))
+            raise
 
     @retry(stop_max_attempt_number=6, wait_fixed=10000)
     def get(self, url, json=None, headers=None, params=None):
@@ -997,7 +1007,12 @@ class ConfigFile:
         return html.fromstring(self.post(url, data=data, json=json, headers=headers).content)
 
     def post_json(self, url, data=None, json=None, headers=None):
-        return self.post(url, data=data, json=json, headers=headers).json()
+        response = self.post(url, data=data, json=json, headers=headers)
+        try:
+            return response.json()
+        except ValueError:
+            logger.error(str(response.content))
+            raise
 
     @retry(stop_max_attempt_number=6, wait_fixed=10000)
     def post(self, url, data=None, json=None, headers=None):

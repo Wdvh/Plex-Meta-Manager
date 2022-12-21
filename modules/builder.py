@@ -42,7 +42,7 @@ ignored_details = [
     "smart_filter", "smart_label", "smart_url", "run_again", "schedule", "sync_mode", "template", "variables", "test", "suppress_overlays",
     "delete_not_scheduled", "tmdb_person", "build_collection", "collection_order", "builder_level", "overlay",
     "validate_builders", "libraries", "sync_to_users", "collection_name", "playlist_name", "name", "blank_collection",
-    "allowed_library_types", "delete_playlist", "ignore_blank_results"
+    "allowed_library_types", "delete_playlist", "ignore_blank_results", "only_run_on_create"
 ]
 details = [
     "ignore_ids", "ignore_imdb_ids", "server_preroll", "changes_webhooks", "collection_filtering", "collection_mode", "limit", "url_theme",
@@ -242,11 +242,25 @@ class CollectionBuilder:
         else:
             self.name = self.mapping_name
 
+        try:
+            self.obj = self.library.get_playlist(self.name) if self.playlist else self.library.get_collection(self.name, force_search=True)
+        except Failed:
+            self.obj = None
+
+        self.only_run_on_create = False
+        if "only_run_on_create" in methods and not self.playlist:
+            logger.debug("")
+            logger.debug("Validating Method: only_run_on_create")
+            logger.debug(f"Value: {data[methods['only_run_on_create']]}")
+            self.only_run_on_create = util.parse(self.Type, "only_run_on_create", self.data, datatype="bool", methods=methods, default=False)
+        if self.obj and self.only_run_on_create:
+            raise NotScheduled("Skipped because only_run_on_create is True and the collection already exists")
+
         if "allowed_library_types" in methods and not self.playlist:
             logger.debug("")
             logger.debug("Validating Method: allowed_library_types")
             if self.data[methods["allowed_library_types"]] is None:
-                raise NotScheduled(f"Skipped because allowed_library_types has no library types")
+                raise NotScheduled("Skipped because allowed_library_types has no library types")
             logger.debug(f"Value: {self.data[methods['allowed_library_types']]}")
             found_type = False
             for library_type in util.get_list(self.data[methods["allowed_library_types"]], lower=True):
@@ -430,7 +444,7 @@ class CollectionBuilder:
             logger.debug("")
             logger.debug("Validating Method: ignore_blank_results")
             logger.debug(f"Value: {data[methods['ignore_blank_results']]}")
-            self.ignore_blank_results = util.parse(self.Type, "ignore_blank_results", self.data, datatype="bool", methods=methods, default=True)
+            self.ignore_blank_results = util.parse(self.Type, "ignore_blank_results", self.data, datatype="bool", methods=methods, default=False)
 
         self.smart_filter_details = ""
         self.smart_label_url = None
@@ -812,17 +826,11 @@ class CollectionBuilder:
                                                           or (self.library.Radarr and self.radarr_details["add_missing"])
                                                           or (self.library.Sonarr and self.sonarr_details["add_missing"]))
         if self.build_collection:
-            try:
-                self.obj = self.library.get_playlist(self.name) if self.playlist else self.library.get_collection(self.name, force_search=True)
-            except Failed:
+            if self.obj and ((self.smart and not self.obj.smart) or (not self.smart and self.obj.smart)):
+                logger.info("")
+                logger.error(f"{self.Type} Error: Converting {self.obj.title} to a {'smart' if self.smart else 'normal'} collection")
+                self.library.delete(self.obj)
                 self.obj = None
-            else:
-                if (self.smart and not self.obj.smart) or (not self.smart and self.obj.smart):
-                    logger.info("")
-                    logger.error(f"{self.Type} Error: Converting {self.obj.title} to a {'smart' if self.smart else 'normal'} collection")
-                    self.library.delete(self.obj)
-                    self.obj = None
-
             if self.smart:
                 check_url = self.smart_url if self.smart_url else self.smart_label_url
                 if self.obj and check_url != self.library.smart_filter(self.obj):
@@ -857,7 +865,9 @@ class CollectionBuilder:
         elif method_name == "tvdb_summary":
             self.summaries[method_name] = self.config.TVDb.get_tvdb_obj(method_data, is_movie=self.library.is_movie).summary
         elif method_name == "tvdb_description":
-            self.summaries[method_name] = self.config.TVDb.get_list_description(method_data)
+            summary, _ = self.config.TVDb.get_list_description(method_data)
+            if summary:
+                self.summaries[method_name] = summary
         elif method_name == "trakt_description":
             self.summaries[method_name] = self.config.Trakt.list_description(self.config.Trakt.validate_list(method_data)[0])
         elif method_name == "letterboxd_description":
@@ -874,6 +884,12 @@ class CollectionBuilder:
                 self.posters[method_name] = method_data
             except ConnectionError:
                 logger.warning(f"{self.Type} Warning: No Poster Found at {method_data}")
+        elif method_name == "tmdb_list_poster":
+            self.posters[method_name] = self.config.TMDb.get_list(util.regex_first_int(method_data, "TMDb List ID")).poster_url
+        elif method_name == "tvdb_list_poster":
+            _, poster = self.config.TVDb.get_list_description(method_data)
+            if poster:
+                self.posters[method_name] = poster
         elif method_name == "tmdb_poster":
             self.posters[method_name] = self.config.TMDb.get_movie_show_or_collection(util.regex_first_int(method_data, 'TMDb ID'), self.library.is_movie).poster_url
         elif method_name == "tmdb_profile":
@@ -1457,6 +1473,8 @@ class CollectionBuilder:
                     item = self.config.TMDb.get_list(values[0])
                     if item.description:
                         self.summaries[method_name] = item.description
+                    if item.poster_url:
+                        self.posters[method_name] = item.poster_url
             for value in values:
                 self.builders.append((method_name[:-8] if method_name in tmdb.details_builders else method_name, value))
 
@@ -1512,7 +1530,11 @@ class CollectionBuilder:
                 if item.poster_url:
                     self.posters[method_name] = item.poster_url
             elif method_name.startswith("tvdb_list"):
-                self.summaries[method_name] = self.config.TVDb.get_list_description(values[0])
+                description, poster = self.config.TVDb.get_list_description(values[0])
+                if description:
+                    self.summaries[method_name] = description
+                if poster:
+                    self.posters[method_name] = poster
         for value in values:
             self.builders.append((method_name[:-8] if method_name.endswith("_details") else method_name, value))
 
@@ -2471,8 +2493,8 @@ class CollectionBuilder:
         tvdb_paths = []
         for item in self.items:
             current_labels = [la.tag for la in self.library.item_labels(item)]
-            if "item_assets" in self.item_details and self.library.asset_directory and "Overlay" not in current_labels:
-                self.library.find_and_upload_assets(item, current_labels)
+            if "item_assets" in self.item_details and self.asset_directory and "Overlay" not in current_labels:
+                self.library.find_and_upload_assets(item, current_labels, asset_directory=self.asset_directory)
             self.library.edit_tags("label", item, add_tags=add_tags, remove_tags=remove_tags, sync_tags=sync_tags)
             self.library.edit_tags("genre", item, add_tags=add_genres, remove_tags=remove_genres, sync_tags=sync_genres)
             if "item_edition" in self.item_details and item.editionTitle != self.item_details["item_edition"]:
@@ -2566,6 +2588,7 @@ class CollectionBuilder:
         logger.info("")
         if "summary" in self.summaries:                     summary = ("summary", self.summaries["summary"])
         elif "tmdb_description" in self.summaries:          summary = ("tmdb_description", self.summaries["tmdb_description"])
+        elif "tvdb_description" in self.summaries:          summary = ("tvdb_description", self.summaries["tvdb_description"])
         elif "letterboxd_description" in self.summaries:    summary = ("letterboxd_description", self.summaries["letterboxd_description"])
         elif "tmdb_summary" in self.summaries:              summary = ("tmdb_summary", self.summaries["tmdb_summary"])
         elif "tvdb_summary" in self.summaries:              summary = ("tvdb_summary", self.summaries["tvdb_summary"])
@@ -2574,6 +2597,7 @@ class CollectionBuilder:
         elif "tmdb_collection_details" in self.summaries:   summary = ("tmdb_collection_details", self.summaries["tmdb_collection_details"])
         elif "trakt_list_details" in self.summaries:        summary = ("trakt_list_details", self.summaries["trakt_list_details"])
         elif "tmdb_list_details" in self.summaries:         summary = ("tmdb_list_details", self.summaries["tmdb_list_details"])
+        elif "tvdb_list_details" in self.summaries:         summary = ("tvdb_list_details", self.summaries["tvdb_list_details"])
         elif "letterboxd_list_details" in self.summaries:   summary = ("letterboxd_list_details", self.summaries["letterboxd_list_details"])
         elif "icheckmovies_list_details" in self.summaries: summary = ("icheckmovies_list_details", self.summaries["icheckmovies_list_details"])
         elif "tmdb_actor_details" in self.summaries:        summary = ("tmdb_actor_details", self.summaries["tmdb_actor_details"])
