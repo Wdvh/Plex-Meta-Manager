@@ -41,8 +41,8 @@ string_details = ["sort_title", "content_rating", "name_mapping"]
 ignored_details = [
     "smart_filter", "smart_label", "smart_url", "run_again", "schedule", "sync_mode", "template", "variables", "test", "suppress_overlays",
     "delete_not_scheduled", "tmdb_person", "build_collection", "collection_order", "builder_level", "overlay",
-    "validate_builders", "libraries", "sync_to_users", "collection_name", "playlist_name", "name", "blank_collection",
-    "allowed_library_types", "delete_playlist", "ignore_blank_results", "only_run_on_create"
+    "validate_builders", "libraries", "sync_to_users", "exclude_users", "collection_name", "playlist_name", "name",
+    "blank_collection", "allowed_library_types", "delete_playlist", "ignore_blank_results", "only_run_on_create"
 ]
 details = [
     "ignore_ids", "ignore_imdb_ids", "server_preroll", "changes_webhooks", "collection_filtering", "collection_mode", "limit", "url_theme",
@@ -162,7 +162,7 @@ parts_collection_valid = [
      "url_theme", "file_theme", "item_label", "default_percent"
 ] + episode_parts_only + summary_details + poster_details + background_details + string_details
 playlist_attributes = [
-    "filters", "name_mapping", "show_filtered", "show_missing", "save_report",
+    "filters", "name_mapping", "show_filtered", "show_missing", "save_report", "allowed_library_types",
     "missing_only_released", "only_filter_missing", "delete_below_minimum", "ignore_ids", "ignore_imdb_ids",
     "server_preroll", "changes_webhooks", "minimum_items", "cache_builders", "default_percent"
 ] + custom_sort_builders + summary_details + poster_details + radarr_details + sonarr_details
@@ -335,6 +335,7 @@ class CollectionBuilder:
             self.overlay = Overlay(config, library, metadata, str(self.mapping_name), overlay_data, suppress, self.builder_level)
 
         self.sync_to_users = None
+        self.exclude_users = None
         self.valid_users = []
         if self.playlist:
             if "sync_to_users" in methods or "sync_to_user" in methods:
@@ -344,18 +345,35 @@ class CollectionBuilder:
                 logger.debug(f"Value: {self.data[methods[s_attr]]}")
                 self.sync_to_users = self.data[methods[s_attr]]
             else:
-                logger.warning(f"Playlist Error: sync_to_users attribute not found defaulting to playlist_sync_to_users: {self.sync_to_users}")
                 self.sync_to_users = config.general["playlist_sync_to_users"]
+                logger.warning(f"Playlist Warning: sync_to_users attribute not found defaulting to playlist_sync_to_users: {self.sync_to_users}")
+
+            if "exclude_users" in methods or "exclude_user" in methods:
+                s_attr = f"exclude_user{'s' if 'exclude_users' in methods else ''}"
+                logger.debug("")
+                logger.debug(f"Validating Method: {s_attr}")
+                logger.debug(f"Value: {self.data[methods[s_attr]]}")
+                self.exclude_users = self.data[methods[s_attr]]
+            elif config.general["playlist_exclude_users"]:
+                self.exclude_users = config.general["playlist_exclude_users"]
+                logger.warning(f"Playlist Warning: exclude_users attribute not found defaulting to playlist_exclude_users: {self.exclude_users}")
 
             plex_users = self.library.users
+
+            self.exclude_users = util.get_list(self.exclude_users) if self.exclude_users else []
+            for user in self.exclude_users:
+                if user not in plex_users:
+                    raise Failed(f"Playlist Error: User: {user} not found in plex\nOptions: {plex_users}")
+
             if self.sync_to_users:
                 if str(self.sync_to_users) == "all":
-                    self.valid_users = plex_users
+                    self.valid_users = [p for p in plex_users if p not in self.exclude_users]
                 else:
                     for user in util.get_list(self.sync_to_users):
                         if user not in plex_users:
                             raise Failed(f"Playlist Error: User: {user} not found in plex\nOptions: {plex_users}")
-                        self.valid_users.append(user)
+                        if user not in self.exclude_users:
+                            self.valid_users.append(user)
 
             if "delete_playlist" in methods:
                 logger.debug("")
@@ -644,17 +662,17 @@ class CollectionBuilder:
             test_sort = self.library.default_collection_order
             logger.warning("")
             logger.warning(f"{self.Type} Warning: collection_order not found using library default_collection_order: {test_sort}")
-        self.custom_sort = self.playlist
+        self.custom_sort = "custom" if self.playlist else None
         if test_sort:
             if self.smart:
                 raise Failed(f"{self.Type} Error: collection_order does not work with Smart Collections")
             logger.debug("")
             logger.debug("Validating Method: collection_order")
             logger.debug(f"Value: {test_sort}")
-            if test_sort in plex.collection_order_options:
-                self.details["collection_order"] = test_sort
-                if test_sort == "custom" and self.build_collection:
-                    self.custom_sort = True
+            if test_sort in plex.collection_order_options + ["custom.asc", "custom.desc"]:
+                self.details["collection_order"] = test_sort.split(".")[0]
+                if test_sort.startswith("custom") and self.build_collection:
+                    self.custom_sort = test_sort
             else:
                 sort_type = self.builder_level
                 if sort_type == "item":
@@ -672,11 +690,11 @@ class CollectionBuilder:
                     if ts not in sorts:
                         raise Failed(f"{self.Type} Error: collection_order: {ts} is invalid. Options: {', '.join(sorts)}")
                     self.custom_sort.append(ts)
-            if isinstance(self.custom_sort, list) and not self.custom_sort:
-                raise Failed(f"{self.Type} Error: {test_sort} collection_order invalid\n\trelease (Order Collection by release dates)\n\talpha (Order Collection Alphabetically)\n\tcustom (Custom Order Collection)\n\tOther sorting options can be found at https://github.com/meisnate12/Plex-Meta-Manager/wiki/Smart-Builders#sort-options")
+            if test_sort not in plex.collection_order_options + ["custom.asc", "custom.desc"] and not self.custom_sort:
+                raise Failed(f"{self.Type} Error: {test_sort} collection_order invalid\n\trelease (Order Collection by release dates)\n\talpha (Order Collection Alphabetically)\n\tcustom.asc/custom.desc (Custom Order Collection)\n\tOther sorting options can be found at https://github.com/meisnate12/Plex-Meta-Manager/wiki/Smart-Builders#sort-options")
 
         if self.smart:
-            self.custom_sort = False
+            self.custom_sort = None
 
         for method_key, method_data in self.data.items():
             if method_key.lower() in ignored_details:
@@ -792,7 +810,7 @@ class CollectionBuilder:
         if self.blank_collection and len(self.builders) > 0:
             raise Failed(f"{self.Type} Error: No builders allowed with blank_collection")
 
-        if self.custom_sort is True and (len(self.builders) > 1 or self.builders[0][0] not in custom_sort_builders):
+        if not isinstance(self.custom_sort, list) and self.custom_sort and (len(self.builders) > 1 or self.builders[0][0] not in custom_sort_builders):
             raise Failed(f"{self.Type} Error: " + ('Playlists' if self.playlist else 'collection_order: custom') +
                          (f" can only be used with a single builder per {self.type}" if len(self.builders) > 1 else f" cannot be used with {self.builders[0][0]}"))
 
@@ -880,7 +898,7 @@ class CollectionBuilder:
         if method_name == "url_poster":
             try:
                 image_response = self.config.get(method_data, headers=util.header())
-                if image_response.status_code >= 400 or image_response.headers["Content-Type"] not in ["image/jpeg", "image/png"]:
+                if image_response.status_code >= 400 or image_response.headers["Content-Type"] not in ["image/jpeg", "image/png", "image/webp"]:
                     raise ConnectionError
                 self.posters[method_name] = method_data
             except ConnectionError:
@@ -907,7 +925,7 @@ class CollectionBuilder:
         if method_name == "url_background":
             try:
                 image_response = self.config.get(method_data, headers=util.header())
-                if image_response.status_code >= 400 or image_response.headers["Content-Type"] not in ["image/jpeg", "image/png"]:
+                if image_response.status_code >= 400 or image_response.headers["Content-Type"] not in ["image/jpeg", "image/png", "image/webp"]:
                     raise ConnectionError
                 self.backgrounds[method_name] = method_data
             except ConnectionError:
@@ -1213,7 +1231,7 @@ class CollectionBuilder:
                     raise Failed(f"{self.Type} Error: chart: {value} does not work with show libraries")
                 elif value in imdb.show_charts and self.library.is_movie:
                     raise Failed(f"{self.Type} Error: chart: {value} does not work with movie libraries")
-                elif value in imdb.charts:
+                elif value in imdb.movie_charts or value in imdb.show_charts:
                     self.builders.append((method_name, value))
                 else:
                     raise Failed(f"{self.Type} Error: chart: {value} is invalid options are {[i for i in imdb.charts]}")
@@ -2327,8 +2345,13 @@ class CollectionBuilder:
             final_return = False
             tmdb_item = None
             for filter_list in self.filters:
-                tmdb_f = [(k, v) for k, v in filter_list if k in tmdb_filters]
-                plex_f = [(k, v) for k, v in filter_list if k not in tmdb_filters]
+                tmdb_f = []
+                plex_f = []
+                for k, v in filter_list:
+                    if k.split(".")[0] in tmdb_filters:
+                        tmdb_f.append((k, v))
+                    else:
+                        plex_f.append((k, v))
                 or_result = True
                 if tmdb_f:
                     if not tmdb_item and isinstance(item, (Movie, Show)):
@@ -2744,8 +2767,10 @@ class CollectionBuilder:
         logger.info("")
         logger.separator(f"Sorting {self.name} {self.Type}", space=False, border=False)
         logger.info("")
-        if self.custom_sort is True:
+        if not isinstance(self.custom_sort, list):
             items = self.found_items
+            if self.custom_sort == "custom.desc":
+                items = items[::-1]
         else:
             plex_search = {"sort_by": self.custom_sort}
             if self.builder_level in ["season", "episode"]:
@@ -2851,7 +2876,6 @@ class CollectionBuilder:
                     poster_url=self.collection_poster.location if self.collection_poster and self.collection_poster.is_url else None,
                     background_url=self.collection_background.location if self.collection_background and self.collection_background.is_url else None,
                     created=self.created,
-                    deleted=self.deleted,
                     additions=self.notification_additions,
                     removals=self.notification_removals,
                     radarr=self.added_to_radarr,

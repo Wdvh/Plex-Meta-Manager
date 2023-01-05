@@ -11,6 +11,7 @@ class Webhooks:
         self.version_webhooks = system_webhooks["version"] if "version" in system_webhooks else []
         self.run_start_webhooks = system_webhooks["run_start"] if "run_start" in system_webhooks else []
         self.run_end_webhooks = system_webhooks["run_end"] if "run_end" in system_webhooks else []
+        self.delete_webhooks = system_webhooks["delete"] if "delete" in system_webhooks else []
         self.library = library
         self.notifiarr = notifiarr
 
@@ -69,7 +70,7 @@ class Webhooks:
 
     def start_time_hooks(self, start_time):
         if self.run_start_webhooks:
-            self._request(self.run_start_webhooks, {"start_time": start_time.strftime("%Y-%m-%d %H:%M:%S")})
+            self._request(self.run_start_webhooks, {"event": "run_start", "start_time": start_time.strftime("%Y-%m-%d %H:%M:%S")})
 
     def version_hooks(self, version, latest_version):
         if self.version_webhooks:
@@ -78,11 +79,12 @@ class Webhooks:
                 notes = self.config.GitHub.latest_release_notes()
             elif version[2] and version[2] < latest_version[2]:
                 notes = self.config.GitHub.get_commits(version[2], nightly=self.config.check_nightly)
-            self._request(self.version_webhooks, {"current": version[0], "latest": latest_version[0], "notes": notes})
+            self._request(self.version_webhooks, {"event": "version", "current": version[0], "latest": latest_version[0], "notes": notes})
 
     def end_time_hooks(self, start_time, end_time, run_time, stats):
         if self.run_end_webhooks:
             self._request(self.run_end_webhooks, {
+                "event": "run_end",
                 "start_time": start_time.strftime("%Y-%m-%d %H:%M:%S"),
                 "end_time": end_time.strftime("%Y-%m-%d %H:%M:%S"),
                 "run_time": run_time,
@@ -98,14 +100,21 @@ class Webhooks:
 
     def error_hooks(self, text, server=None, library=None, collection=None, playlist=None, critical=True):
         if self.error_webhooks:
-            json = {"error": str(text), "critical": critical}
+            json = {"event": "error", "error": str(text), "critical": critical}
             if server:          json["server_name"] = str(server)
             if library:         json["library_name"] = str(library)
             if collection:      json["collection"] = str(collection)
             if playlist:        json["playlist"] = str(playlist)
             self._request(self.error_webhooks, json)
 
-    def collection_hooks(self, webhooks, collection, poster_url=None, background_url=None, created=False, deleted=False,
+    def delete_hooks(self, message, server=None, library=None):
+        if self.delete_webhooks:
+            json = {"event": "delete", "message": message}
+            if server:          json["server_name"] = str(server)
+            if library:         json["library_name"] = str(library)
+            self._request(self.delete_webhooks, json)
+
+    def collection_hooks(self, webhooks, collection, poster_url=None, background_url=None, created=False,
                          additions=None, removals=None, radarr=None, sonarr=None, playlist=False):
         if self.library:
             thumb = None
@@ -115,11 +124,11 @@ class Webhooks:
             if not playlist and not background_url and collection.art and next((f for f in collection.fields if f.name == "art"), None):
                 art = self.config.get_image_encoded(f"{self.library.url}{collection.art}?X-Plex-Token={self.library.token}")
             self._request(webhooks, {
+                "event": "changes",
                 "server_name": self.library.PlexServer.friendlyName,
                 "library_name": self.library.name,
                 "playlist" if playlist else "collection": collection.title,
                 "created": created,
-                "deleted": deleted,
                 "poster": thumb,
                 "background": art,
                 "poster_url": poster_url,

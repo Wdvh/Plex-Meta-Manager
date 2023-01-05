@@ -497,6 +497,7 @@ class Operations:
                                     logger.info(self.library.edit_tags("label", item, remove_tags="Overlay", do_print=False))
                             else:
                                 logger.info("Poster | No Reset Image Found")
+                        item.reload()
 
                     if self.library.mass_background_update:
                         if self.library.mass_background_update == "lock":
@@ -523,6 +524,7 @@ class Operations:
                                 logger.info(f"Background | Reset from {background_location}")
                             else:
                                 logger.info(f"Background | No Reset Image Found")
+                        item.reload()
 
                     if self.library.is_show:
                         real_show = tmdb_item.load_show() if tmdb_item else None
@@ -558,9 +560,10 @@ class Operations:
                                         self.library.upload_poster(season, season_poster, url=poster_url)
                                         logger.info(f"{season.title} Poster | Reset from {poster_location}")
                                         if "Overlay" in [la.tag for la in self.library.item_labels(season)]:
-                                            logger.info(self.library.edit_tags("label", season, remove_tags="Ovelray", do_print=False))
+                                            logger.info(self.library.edit_tags("label", season, remove_tags="Overlay", do_print=False))
                                     else:
                                         logger.info(f"{season.title} Poster | No Reset Image Found")
+                                item.reload()
                             if self.library.mass_background_update:
                                 if self.library.mass_background_update == "lock":
                                     self.library.query(season.lockArt)
@@ -582,8 +585,13 @@ class Operations:
                                         logger.info(f"{season.title} Background | Reset from {background_location}")
                                     else:
                                         logger.info(f"{season.title} Background | No Reset Image Found")
-
-                            tmdb_episodes = {e.episode_number: e for e in tmdb_seasons[season.seasonNumber].episodes} if season.seasonNumber in tmdb_seasons else {}
+                            tmdb_episodes = {}
+                            if season.seasonNumber in tmdb_seasons:
+                                for episode in tmdb_seasons[season.seasonNumber].episodes:
+                                    try:
+                                        tmdb_episodes[episode.episode_number] = episode
+                                    except NotFound:
+                                        logger.error(f"TMDb Error: An Episode of Season {season.seasonNumber} was Not Found")
 
                             for episode in self.library.query(season.episodes):
                                 try:
@@ -616,9 +624,10 @@ class Operations:
                                             self.library.upload_poster(episode, episode_poster, url=poster_url)
                                             logger.info(f"{episode.title} Poster | Reset from {poster_location}")
                                             if "Overlay" in [la.tag for la in self.library.item_labels(episode)]:
-                                                logger.info(self.library.edit_tags("label", episode, remove_tags="Ovelray", do_print=False))
+                                                logger.info(self.library.edit_tags("label", episode, remove_tags="Overlay", do_print=False))
                                         else:
                                             logger.info(f"{episode.title} Poster | No Reset Image Found")
+                                    item.reload()
                                 if self.library.mass_background_update:
                                     if self.library.mass_background_update == "lock":
                                         self.library.query(episode.lockArt)
@@ -640,6 +649,7 @@ class Operations:
                                             logger.info(f"{episode.title} Background | Reset from {background_location}")
                                         else:
                                             logger.info(f"{episode.title} Background | No Reset Image Found")
+                                    item.reload()
 
                 episode_ops = [self.library.mass_episode_audience_rating_update, self.library.mass_episode_critic_rating_update, self.library.mass_episode_user_rating_update]
 

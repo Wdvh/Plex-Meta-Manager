@@ -477,6 +477,9 @@ class Plex(Library):
     def notify(self, text, collection=None, critical=True):
         self.config.notify(text, server=self.PlexServer.friendlyName, library=self.name, collection=collection, critical=critical)
 
+    def notify_delete(self, message):
+        self.config.notify_delete(message, server=self.PlexServer.friendlyName, library=self.name)
+
     def set_server_preroll(self, preroll):
         self.PlexServer.settings.get('cinemaTrailersPrerollID').set(preroll)
         self.PlexServer.settings.save()
@@ -715,7 +718,10 @@ class Plex(Library):
         return self._users
 
     def delete_user_playlist(self, title, user):
-        self.delete(self.PlexServer.switchUser(user).playlist(title))
+        try:
+            self.delete(self.PlexServer.switchUser(user).playlist(title))
+        except NotFound as e:
+            raise Failed(e)
 
     @property
     def account(self):
@@ -1236,7 +1242,7 @@ class Plex(Library):
 
         if is_top_level and self.asset_folders and self.dimensional_asset_rename and (not poster or not background):
             for file in util.glob_filter(os.path.join(item_asset_directory, "*.*")):
-                if file.lower().endswith((".jpg", ".png", ".jpeg")):
+                if file.lower().endswith((".png", ".jpg", ".jpeg", "webp")):
                     try:
                         image = Image.open(file)
                         _w, _h = image.size

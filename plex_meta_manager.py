@@ -83,7 +83,7 @@ ignore_schedules = get_arg("PMM_IGNORE_SCHEDULES", args.ignore_schedules, arg_bo
 ignore_ghost = get_arg("PMM_IGNORE_GHOST", args.ignore_ghost, arg_bool=True)
 collection_only = get_arg("PMM_COLLECTIONS_ONLY", args.collection_only, arg_bool=True)
 playlist_only = get_arg("PMM_PLAYLISTS_ONLY", args.playlist_only, arg_bool=True)
-operations_only = get_arg(["PMM_OPERATIONS", "PMM_LIBRARIES_ONLY"], args.operations, arg_bool=True)
+operations_only = get_arg(["PMM_OPERATIONS", "PMM_OPERATIONS_ONLY", "PMM_LIBRARIES_ONLY"], args.operations, arg_bool=True)
 overlays_only = get_arg(["PMM_OVERLAYS", "PMM_OVERLAYS_ONLY"], args.overlays, arg_bool=True)
 library_first = get_arg("PMM_LIBRARIES_FIRST", args.library_first, arg_bool=True)
 collections = get_arg("PMM_COLLECTIONS", args.collections)
@@ -634,7 +634,7 @@ def run_collection(config, library, metadata, requested_collections):
                         else:
                             raise Failed(e)
 
-                if not builder.found_items and builder.ignore_blank_results:
+                if not builder.found_items and not builder.ignore_blank_results:
                     raise NonExisting(f"{builder.Type} Warning: No items found")
 
                 builder.display_filters()
@@ -724,6 +724,7 @@ def run_collection(config, library, metadata, requested_collections):
         except NotScheduled as e:
             logger.info(e)
             if str(e).endswith("and was deleted"):
+                library.notify_delete(e)
                 library.stats["deleted"] += 1
                 library.status[str(mapping_name)]["status"] = "Deleted Not Scheduled"
             elif str(e).startswith("Skipped because allowed_library_types"):
@@ -903,11 +904,13 @@ def run_playlists(config):
             except Deleted as e:
                 logger.info(e)
                 status[mapping_name]["status"] = "Deleted"
+                config.notify_delete(e)
             except NotScheduled as e:
                 logger.info(e)
                 if str(e).endswith("and was deleted"):
                     stats["deleted"] += 1
                     status[mapping_name]["status"] = "Deleted Not Scheduled"
+                    config.notify_delete(e)
                 else:
                     status[mapping_name]["status"] = "Not Scheduled"
             except Failed as e:
