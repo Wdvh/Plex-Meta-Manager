@@ -185,8 +185,11 @@ class Operations:
                     if any([o.startswith("mal") for o in self.library.meta_operations]):
                         if item.ratingKey in reverse_mal:
                             mal_id = reverse_mal[item.ratingKey]
-                        elif not anidb_id or anidb_id not in self.config.Convert._anidb_to_mal:
-                            logger.warning(f"No AniDB ID to Convert to MyAnimeList ID for Guid: {item.guid}")
+                        elif not anidb_id:
+                            logger.warning(f"Covert Warning: No AniDB ID to Convert to MyAnimeList ID for Guid: {item.guid}")
+                            mal_id = None
+                        elif anidb_id not in self.config.Convert._anidb_to_mal:
+                            logger.warning(f"Covert Warning: No MyAnimeList Found for AniDB ID: {anidb_id} of Guid: {item.guid}")
                             mal_id = None
                         else:
                             mal_id = self.config.Convert._anidb_to_mal[anidb_id]
@@ -229,7 +232,7 @@ class Operations:
                                     logger.trace(f"IMDb ID: {imdb_id}")
                                     raise
                             if mdb_item is None:
-                                logger.warning(f"No MdbItem for Guid: {item.guid}")
+                                logger.warning(f"No MdbItem for {item.title} (Guid: {item.guid})")
                         except LimitReached as e:
                             logger.debug(e)
 
@@ -290,9 +293,11 @@ class Operations:
 
                         if found_rating is None:
                             logger.info(f"No {display} Found")
-                        elif str(current) != str(found_rating):
-                            item.editField(item_attr, found_rating)
-                            return f"\n{display} | {found_rating}"
+                        else:
+                            found_rating = f"{float(found_rating):.1f}"
+                            if str(current) != found_rating:
+                                item.editField(item_attr, found_rating)
+                                return f"\n{display} | {found_rating}"
                     return ""
 
                 if self.library.mass_audience_rating_update:
@@ -486,7 +491,7 @@ class Operations:
                                     new_poster = tmdb_item.poster_url
                                     poster_location = "TMDb"
                                 if not new_poster:
-                                    poster = next((p for p in item.posters() if p.provider == "local"), None)
+                                    poster = next((p for p in item.posters()), None)
                                     if poster:
                                         new_poster = f"{self.library.url}{poster.key}&X-Plex-Token={self.library.token}"
                                         poster_location = "Plex"
@@ -515,7 +520,7 @@ class Operations:
                                     new_background = tmdb_item.backdrop_url
                                     background_location = "TMDb"
                                 if not new_background:
-                                    background = next((p for p in item.arts() if p.provider == "local"), None)
+                                    background = next((p for p in item.arts()), None)
                                     if background:
                                         new_background = f"{self.library.url}{background.key}&X-Plex-Token={self.library.token}"
                                         background_location = "Plex"
@@ -552,7 +557,7 @@ class Operations:
                                             season_poster = tmdb_seasons[season.seasonNumber].poster_url
                                             poster_location = "TMDb"
                                         if not season_poster:
-                                            poster = next((p for p in season.posters() if p.provider == "local"), None)
+                                            poster = next((p for p in season.posters()), None)
                                             if poster:
                                                 season_poster = f"{self.library.url}{poster.key}&X-Plex-Token={self.library.token}"
                                                 poster_location = "Plex"
@@ -576,7 +581,7 @@ class Operations:
                                     background_url = False if season_background else True
                                     season_background = season_background.location if season_background else None
                                     if not season_background:
-                                        background = next((p for p in item.arts() if p.provider == "local"), None)
+                                        background = next((p for p in item.arts()), None)
                                         if background:
                                             season_background = f"{self.library.url}{background.key}&X-Plex-Token={self.library.token}"
                                             background_location = "Plex"
@@ -616,7 +621,7 @@ class Operations:
                                                 episode_poster = tmdb_episodes[episode.episodeNumber].still_url
                                                 poster_location = "TMDb"
                                             if not episode_poster:
-                                                poster = next((p for p in episode.posters() if p.provider == "local"), None)
+                                                poster = next((p for p in episode.posters()), None)
                                                 if poster:
                                                     episode_poster = f"{self.library.url}{poster.key}&X-Plex-Token={self.library.token}"
                                                     poster_location = "Plex"
@@ -640,7 +645,7 @@ class Operations:
                                         background_url = False if episode_background else True
                                         episode_background = episode_background.location if episode_background else None
                                         if not episode_background:
-                                            background = next((p for p in item.arts() if p.provider == "local"), None)
+                                            background = next((p for p in item.arts()), None)
                                             if background:
                                                 episode_background = f"{self.library.url}{background.key}&X-Plex-Token={self.library.token}"
                                                 background_location = "Plex"
@@ -689,9 +694,11 @@ class Operations:
 
                                 if found_rating is None:
                                     logger.info(f"No {display} Found")
-                                elif str(current) != str(found_rating):
-                                    ep.editField(item_attr, found_rating)
-                                    return f"\n{display} | {found_rating}"
+                                else:
+                                    found_rating = f"{float(found_rating):.1f}"
+                                    if str(current) != found_rating:
+                                        ep.editField(item_attr, found_rating)
+                                        return f"\n{display} | {found_rating}"
                             return ""
 
                         if self.library.mass_episode_audience_rating_update:

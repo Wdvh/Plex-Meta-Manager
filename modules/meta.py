@@ -147,7 +147,7 @@ class DataFile:
             raise Failed(f"URL Error: Top Level translations attribute not found in {content_path}")
         translations = {k: {"default": v} for k, v in yaml.data["translations"].items()}
         lib_type = self.library.type.lower() if self.library else "item"
-        logger.debug(f"Translations Loaded From: {dir_path}")
+        logger.trace(f"Translations Loaded From: {dir_path}")
         key_names = {}
         variables = {k: {"default": v[lib_type]} for k, v in yaml.data["variables"].items()}
 
@@ -165,9 +165,9 @@ class DataFile:
                     if translation_key in yaml_content.data["translations"]:
                         translations[translation_key][yaml_key] = yaml_content.data["translations"][translation_key]
                     else:
-                        logger.error(f"Translation Error: translations attribute {translation_key} not found in {yaml_path}")
+                        logger.trace(f"Translation Error: translations attribute {translation_key} not found in {yaml_path}")
             else:
-                logger.error(f"Config Error: Top Level translations attribute not found in {yaml_path}")
+                logger.trace(f"Config Error: Top Level translations attribute not found in {yaml_path}")
 
             if "key_names" in yaml_content.data and yaml_content.data["key_names"]:
                 for kn, vn in yaml_content.data["key_names"].items():
@@ -306,8 +306,8 @@ class DataFile:
                             conditionals[k] = v
 
                     language = variables["language"] if "language" in variables else "default"
-                    translation_variables = {k: v[language if language in v else "default"] for k, v in self.translations.items()}
-                    translation_variables.update({k: v[language if language in v else "default"] for k, v in self.translation_variables.items() if language in v or "default" in v})
+                    translation_variables = {k: v[language if language in v else "default"] for k, v in self.translations.items() if k not in optional}
+                    translation_variables.update({k: v[language if language in v else "default"] for k, v in self.translation_variables.items() if (language in v or "default" in v) and k not in optional})
                     key_name_variables = {}
                     for var_key, var_value in self.key_names.items():
                         if var_key == "library_type" and language in var_value:
@@ -450,7 +450,8 @@ class DataFile:
                             for k, v in default.items():
                                 if f"<<{k}>>" in key:
                                     key = key.replace(f"<<{k}>>", v)
-                            variables[key] = value
+                            if key not in variables:
+                                variables[key] = value
                     for key, value in variables.copy().items():
                         variables[f"{key}_encoded"] = requests.utils.quote(str(value))
 
@@ -467,37 +468,56 @@ class DataFile:
                     logger.trace(f"Translation: {translation_variables}")
                     logger.trace("")
 
-                    def check_for_var(_method, _data):
+                    def check_for_var(_method, _data, _debug):
                         def scan_text(og_txt, var, actual_value):
                             if og_txt is None:
                                 return og_txt
                             elif str(og_txt) == f"<<{var}>>":
                                 return actual_value
-                            elif f"<<{var}>>" in str(og_txt):
-                                return str(og_txt).replace(f"<<{var}>>", str(actual_value))
+                            elif f"<<{var}" in str(og_txt):
+                                final = str(og_txt).replace(f"<<{var}>>", str(actual_value)) if f"<<{var}>>" in str(og_txt) else str(og_txt)
+                                if f"<<{var}" in final:
+                                    match = re.search(f"<<({var}([+-])(\d+))>>", final)
+                                    if match:
+                                        try:
+                                            final = final.replace(f"<<{match.group(1)}>>", str(int(actual_value) + (int(match.group(3)) * (-1 if match.group(2) == "-" else 1))))
+                                        except ValueError:
+                                            raise Failed(f"Template Error: {actual_value} must be a number to use {match.group(1)}")
+                                return final
                             else:
                                 return og_txt
-                        for i_check in range(8):
-                            for option in optional:
-                                if option not in variables and option not in translation_variables and f"<<{option}>>" in str(_data):
-                                    raise Failed
-                            for variable, variable_data in variables.items():
-                                if (variable == "collection_name" or variable == "playlist_name") and _method in ["radarr_tag", "item_radarr_tag", "sonarr_tag", "item_sonarr_tag"]:
-                                    _data = scan_text(_data, variable, variable_data.replace(",", ""))
-                                elif variable != "name":
+                        if _debug:
+                            logger.trace(f"Start {_method}: {_data}")
+                        try:
+                            for i_check in range(8):
+                                for option in optional:
+                                    if option not in variables and option not in translation_variables and f"<<{option}>>" in str(_data):
+                                        if _debug:
+                                            logger.trace(f"Failed {_method}: {_data}")
+                                        raise Failed
+                                for variable, variable_data in variables.items():
+                                    if (variable == "collection_name" or variable == "playlist_name") and _method in ["radarr_tag", "item_radarr_tag", "sonarr_tag", "item_sonarr_tag"]:
+                                        _data = scan_text(_data, variable, variable_data.replace(",", ""))
+                                    elif variable != "name":
+                                        _data = scan_text(_data, variable, variable_data)
+                                for variable, variable_data in translation_variables.items():
                                     _data = scan_text(_data, variable, variable_data)
-                            for variable, variable_data in translation_variables.items():
-                                _data = scan_text(_data, variable, variable_data)
-                            for dm, dd in default.items():
-                                _data = scan_text(_data, dm, dd)
+                                for dm, dd in default.items():
+                                    _data = scan_text(_data, dm, dd)
+                        except Failed:
+                            if _debug:
+                                logger.trace(f"Failed {_method}: {_data}")
+                            raise
+                        if _debug:
+                            logger.trace(f"End {_method}: {_data}")
                         return _data
 
-                    def check_data(_method, _data):
+                    def check_data(_method, _data, _debug):
                         if isinstance(_data, dict):
                             final_data = {}
                             for sm, sd in _data.items():
                                 try:
-                                    final_data[check_for_var(_method, sm)] = check_data(_method, sd)
+                                    final_data[check_for_var(_method, sm, _debug)] = check_data(_method, sd, _debug)
                                 except Failed:
                                     continue
                             if not final_data:
@@ -506,24 +526,25 @@ class DataFile:
                             final_data = []
                             for li in _data:
                                 try:
-                                    final_data.append(check_data(_method, li))
+                                    final_data.append(check_data(_method, li, _debug))
                                 except Failed:
                                     continue
                             if not final_data:
                                 raise Failed
                         else:
-                            final_data = check_for_var(_method, _data)
+                            final_data = check_for_var(_method, _data, _debug)
                         return final_data
 
                     for method_name, attr_data in template.items():
                         if method_name not in data and method_name not in ["default", "optional", "conditionals", "move_collection_prefix", "move_prefix"]:
                             try:
-                                new_name = check_for_var(method_name, method_name)
+                                debug_template = False
+                                new_name = check_for_var(method_name, method_name, debug_template)
                                 if new_name in new_attributes:
                                     logger.info("")
                                     logger.warning(f"Template Warning: template attribute: {new_name} from {variables['name']} skipped")
                                 else:
-                                    new_attributes[new_name] = check_data(new_name, attr_data)
+                                    new_attributes[new_name] = check_data(new_name, attr_data, debug_template)
                             except Failed:
                                 continue
             logger.separator(f"Final Template Attributes", space=False, border=False, debug=True)

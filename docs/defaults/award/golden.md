@@ -10,7 +10,8 @@ The `golden` Default Metadata File is used to create collections based on the Go
 
 | Collection                                                  | Key                               | Description                                                   |
 |:------------------------------------------------------------|:----------------------------------|:--------------------------------------------------------------|
-| `Golden Globe Best Motion Pictures`                         | `best`                            | Collection of Golden Globe Best Motion Picture Award Winners. |
+| `Golden Globes Best Picture Winners`                        | `best_picture`                    | Collection of Golden Globe Best Picture Award Winners.        |
+| `Golden Globes Best Director Winners`                       | `best_director`                   | Collection of Golden Globe Best Director Award Winners.       |
 | `Golden Globe <<year>>`<br>**Example:** `Golden Globe 2022` | `<<year>>`<br>**Example:** `2022` | Collection of Golden Globe Award Winners for the given year.  |
 
 ## Config
@@ -31,7 +32,7 @@ libraries:
 
 Template Variables can be used to manipulate the file in various ways to slightly change how it works without having to make your own local copy.
 
-Note that the `templates_variables:` section only needs to be used if you do want to actually change how the defaults work. Any value not specified is its default value if it has one if not it's just ignored.
+Note that the `template_variables:` section only needs to be used if you do want to actually change how the defaults work. Any value not specified is its default value if it has one if not it's just ignored.
 
 All [Shared Collection Variables](../collection_variables) are available as well as the additional Variables below which can be used to customize the file.
 

@@ -8,16 +8,17 @@ This Default file requires [Trakt Authentication](../config/trakt)
 
 ## Playlists
 
-| Playlist                                     | Key         | Description                                                                       |
-|:---------------------------------------------|:------------|:----------------------------------------------------------------------------------|
-| `Arrowverse (Timeline Order)`                | `arrow`     | Playlist of Movies and Episodes in the Arrowverse (Timeline Order)                |
-| `Marvel Cinematic Universe (Timeline Order)` | `mcu`       | Playlist of Movies and Episodes in the Marvel Cinematic Universe (Timeline Order) |
-| `DC Animated Universe (Timeline Order)`      | `dcau`      | Playlist of Movies and Episodes in the DC Animated Universe (Timeline Order)      |
-| `Pokémon (Timeline Order)`                   | `pokemon`   | Playlist of Movies and Episodes in the Pokémon (Timeline Order)                   |
-| `Star Trek (Timeline Order)`                 | `startrek`  | Playlist of Movies and Episodes in the Star Trek (Timeline Order)                 |
-| `Star Wars (Timeline Order)`                 | `starwars`  | Playlist of Movies and Episodes in the Star Wars (Timeline Order)                 |
-| `Star Wars The Clone Wars (Timeline Order)`  | `clonewars` | Playlist of Movies and Episodes in the Star Wars The Clone Wars (Timeline Order)  |
-| `X-Men (Timeline Order)`                     | `xmen`      | Playlist of Movies and Episodes in the X-Men (Timeline Order)                     |
+| Playlist                                     | Key          | Description                                                                       |
+|:---------------------------------------------|:-------------|:----------------------------------------------------------------------------------|
+| `Arrowverse (Timeline Order)`                | `arrow`      | Playlist of Movies and Episodes in the Arrowverse (Timeline Order)                |
+| `Marvel Cinematic Universe (Timeline Order)` | `mcu`        | Playlist of Movies and Episodes in the Marvel Cinematic Universe (Timeline Order) |
+| `DC Animated Universe (Timeline Order)`      | `dcau`       | Playlist of Movies and Episodes in the DC Animated Universe (Timeline Order)      |
+| `Pokémon (Timeline Order)`                   | `pokemon`    | Playlist of Movies and Episodes in the Pokémon (Timeline Order)                   |
+| `Star Trek (Timeline Order)`                 | `startrek`   | Playlist of Movies and Episodes in the Star Trek (Timeline Order)                 |
+| `Star Wars (Timeline Order)`                 | `starwars`   | Playlist of Movies and Episodes in the Star Wars (Timeline Order)                 |
+| `Star Wars The Clone Wars (Timeline Order)`  | `clonewars`  | Playlist of Movies and Episodes in the Star Wars The Clone Wars (Timeline Order)  |
+| `X-Men (Timeline Order)`                     | `xmen`       | Playlist of Movies and Episodes in the X-Men (Timeline Order)                     |
+| `Dragon Ball (Timeline Order)`               | `dragonball` | Playlist of Movies and Episodes in the Dragon Ball (Timeline Order)               |
 
 ## Config
 
@@ -32,7 +33,7 @@ playlist_files:
 
 Template Variables can be used to manipulate the file in various ways to slightly change how it works without having to make your own local copy.
 
-Note that the `templates_variables:` section only needs to be used if you do want to actually change how the defaults work. Any value not specified is its default value if it has one if not it's just ignored.
+Note that the `template_variables:` section only needs to be used if you do want to actually change how the defaults work. Any value not specified is its default value if it has one if not it's just ignored.
 
 **[Shared Variables](collection_variables) are NOT available to this default file.**
 
@@ -96,4 +97,5 @@ trakt_list:
   starwars: https://trakt.tv/users/ruben_vw_/lists/star-wars-canon-timeline
   clonewars: https://trakt.tv/users/tomfin46/lists/star-wars-the-clone-wars-chronological-episode-order
   xmen: https://trakt.tv/users/heyitsbea/lists/x-men
+  dragonball: https://trakt.tv/users/qamazi/lists/dragon-ball-binged-out
 ```
