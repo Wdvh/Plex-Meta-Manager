@@ -7,7 +7,7 @@ def get_today_date():
     return date.today().strftime("%Y-%m-%d")
 
 # Set your Trakt API credentials
-access_token = "201bbf9b082db4958fac223a4872286185a1042383578a3f217b158f0158a743"
+access_token = "d267e1c912771bcc98565a8fc75bddadb63b5329d2990671819432bc4b87cad0"
 client_id = "3000e66c77a21fc6dac2ef76d86fdb9ff4432ff39f5abcbf0b15e5413a34f3f0"
 
 # Define URLs for movies and TV shows rated 9-10
