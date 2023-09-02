@@ -3,6 +3,7 @@ cd /Users/silviovolley/Plex-Meta-Manager
 python3 -m venv pmm-venv
 source pmm-venv/bin/activate
 pip install --upgrade pip
+pip install pytz
 python -m pip install -r requirements.txt
 sh pmm_main_run.sh
 

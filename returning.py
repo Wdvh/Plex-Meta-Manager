@@ -7,6 +7,12 @@ import pytz  # Import the pytz library for timezone conversion
 def get_today_date():
     return date.today().strftime("%Y-%m-%d")
 
+# Function to get today's date for the list descriptionin the format dd. mm. yyyy
+def get_today_date_for_list():
+    today = date.today()
+    formatted_date = today.strftime("%d. %m. %Y")
+    return formatted_date
+
 # Function to format a datetime string with timezone information
 def format_datetime(datetime_str, timezone):
     if datetime_str:
@@ -30,8 +36,8 @@ list_url = "https://api.trakt.tv/users/wdvhucb/lists/returning/items"
 remove_url = "https://api.trakt.tv/users/wdvhucb/lists/returning/items/remove"
 
 # Set your Trakt API credentials
-access_token = "d267e1c912771bcc98565a8fc75bddadb63b5329d2990671819432bc4b87cad0"
-client_id = "3000e66c77a21fc6dac2ef76d86fdb9ff4432ff39f5abcbf0b15e5413a34f3f0"
+access_token = "307054604aa64f7e0faf779f3a38acadbaf82ba0c6d88829d966359fdbcff4cc"
+client_id = "0b07b6a8d02304e1bad2d7c90ce79d1c2157df25ffd893e093c89d84af1add75"
 
 # Set your webhook URL
 webhook_url = "https://discord.com/api/webhooks/1143526278100701345/JAHdFwQCWWXrWZ-n3tCT4PXnSufITtvaaDJbPpc8FhJgZEfbZAFQT2wYs5xux7EJifHV"  # Replace with your actual webhook URL
@@ -43,6 +49,18 @@ headers = {
     "trakt-api-version": "2",
     "trakt-api-key": client_id
 }
+
+def update_list_description(new_description):
+    # Set the correct Trakt list URL for updating the list description
+    update_list_url = "https://api.trakt.tv/users/wdvhucb/lists/returning"
+    update_payload = {
+        "description": new_description
+    }
+    # Send a JSON PUT request to update the list description
+    update_response = requests.put(update_list_url, data=json.dumps(update_payload), headers=headers)
+    
+    # Print Trakt API response code for debugging
+    print(f"Update Response Code: {update_response.status_code}")
 
 try:
     # Send the GET request to fetch TV shows from the Trakt API
@@ -106,25 +124,38 @@ try:
             # Print Trakt API response code for debugging
             print(f"Add Response Code: {add_response.status_code}")
 
-            # Send a notification only if items were added or removed
-            if shows_to_add or shows_to_remove:
-                notification_text = "\n**Changed the Trakt List Returning**\n"
-                if shows_to_add:
-                    notification_text += "\n**added TV Shows:**\n"
-                    for show in shows_to_add:
-                        trakt_url = f"<https://trakt.tv/shows/{show['ids']['trakt']}>"
-                        formatted_datetime = format_datetime(show['first_aired'], "Europe/Berlin")
-                        notification_text += f"[{show['title']}]({trakt_url}) {formatted_datetime}\n"
-                
-                if shows_to_remove:
-                    notification_text += "\n**removed TV Shows:**\n"
-                    for item in shows_to_remove:
-                        trakt_url = f"<https://trakt.tv/shows/{item['ids']['trakt']}>"
-                        formatted_datetime = format_datetime(item['first_aired'], "Europe/Berlin")
-                        notification_text += f"[{item['title']} {formatted_datetime}]({trakt_url})\n"
+            # Determine if items were added or removed
+            items_changed = shows_to_add or shows_to_remove
 
-                # Send the notification to the webhook
-                response = requests.post(webhook_url, json={"content": notification_text})
+            # Get today's date
+            last_changed_text = get_today_date_for_list()
+
+            if items_changed:
+                # Include the list description with the last changed date
+                list_description = f"TV shows that air a new season in the next 3 months.\nThis list was last changed on {last_changed_text}."
+
+                # Update the list description with the last changed date
+                update_list_description(list_description)
+
+                # Send a notification only if items were added or removed
+                if items_changed:
+                    notification_text = "\n**Changed the Trakt List Returning**\n"
+                    if shows_to_add:
+                        notification_text += "\n**added TV Shows:**\n"
+                        for show in shows_to_add:
+                            trakt_url = f"<https://trakt.tv/shows/{show['ids']['trakt']}>"
+                            formatted_datetime = format_datetime(show['first_aired'], "Europe/Berlin")
+                            notification_text += f"[{show['title']}]({trakt_url}) {formatted_datetime}\n"
+                        
+                    if shows_to_remove:
+                        notification_text += "\n**removed TV Shows:**\n"
+                        for item in shows_to_remove:
+                            trakt_url = f"<https://trakt.tv/shows/{item['ids']['trakt']}>"
+                            formatted_datetime = format_datetime(item['first_aired'], "Europe/Berlin")
+                            notification_text += f"[{item['title']} {formatted_datetime}]({trakt_url})\n"
+
+        # Send the notification to the webhook
+        response = requests.post(webhook_url, json={"content": notification_text})
                 
 
     else:
@@ -132,3 +163,7 @@ try:
 
 except Exception as e:
     print(f"An error occurred: {str(e)}")
+
+
+
+
