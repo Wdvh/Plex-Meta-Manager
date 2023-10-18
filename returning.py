@@ -36,7 +36,7 @@ list_url = "https://api.trakt.tv/users/wdvhucb/lists/returning/items"
 remove_url = "https://api.trakt.tv/users/wdvhucb/lists/returning/items/remove"
 
 # Set your Trakt API credentials
-access_token = "307054604aa64f7e0faf779f3a38acadbaf82ba0c6d88829d966359fdbcff4cc"
+access_token = "18c56d225150306f61ce100a9d3135443c7539f5d572e0002575da5e5ade0787"
 client_id = "0b07b6a8d02304e1bad2d7c90ce79d1c2157df25ffd893e093c89d84af1add75"
 
 # Set your webhook URL
